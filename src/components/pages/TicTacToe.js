@@ -24,13 +24,14 @@ import FancyButton from '../small/FancyButton';
   Esto les dará algunas pistas
 */
 
-const Square = ({ value, onClick = () => {} }) => {
+const Square = ({ value, onClick = () => {}, id }) => {
   return (
-    <div onClick={onClick} className="square">
+    <div onClick={onClick} className="square" id={id}>
       {value}
     </div>
   );
 };
+
 Square.propTypes = {
   value: PropTypes.oneOf(['X', 'O', '']),
   onClick: PropTypes.func,
@@ -48,46 +49,108 @@ const WinnerCard = ({ show, winner, onRestart = () => {} }) => {
 };
 
 WinnerCard.propTypes = {
-  // Esta propiedad decide si el componente se muestra o está oculto
-  // También se podría mostrar el componente usando un if (&&), pero usamos esta prop para mostrar los estilos correctamente.
   show: PropTypes.bool.isRequired,
   winner: PropTypes.oneOf(['X', 'O']),
   onRestart: PropTypes.func,
 };
 
-const getWinner = tiles => {
-  // calcular el ganador del partido a partir del estado del tablero
-  // (existen varias formas de calcular esto, una posible es listar todos los
-  // casos en los que un jugador gana y ver si alguno sucede)
-  return null;
+const getWinner = (tiles, player) => {
+  const allSquaresFilled = (tiles.indexOf('')===-1)
+  const playerEntries = tiles.map((el, i)=> (el===player)? i : null).filter((i)=> i!==null);
+  let winnerExists;
+
+  if(playerEntries.length>=3){
+    winnerExists = mapper(playerEntries);
+  }
+
+  function mapper(array){
+    if(array.length<3){
+      return false
+    }
+    const closerRelations = array.slice(1).filter(el => el>=(array[0]-4) || el<=(array[0]-4)).map(el => [el, (el-array[0]), (el%3 - array[0]%3)])
+    const extendedRelations = closerRelations.filter(([el, increase, moduleDifference])=>{
+      const searchedNumber = array[0]+increase*2;
+      return (array.includes(searchedNumber) && ((searchedNumber%3-array[0]%3)===moduleDifference*2))
+    });
+    return ((extendedRelations.length!== 0)? true : mapper(array.slice(1)))
+  }
+
+  const results = (winnerExists)? player : (allSquaresFilled)? "tie" : false
+
+  return results;
 };
 
 const useTicTacToeGameState = initialPlayer => {
-  const tiles = [];
-  const currentPlayer = initialPlayer;
-  const winner = getWinner(tiles);
-  const gameEnded = false;
+  const [tiles, setTileTo] = React.useState(["","","","","","","","",""])
+  const [player, setPlayer] = React.useState(initialPlayer)
+  const [gameEnded, setGameEnded] = React.useState(false)
+  const [winner, setWinner] = React.useState('')
 
-  const setTileTo = (tileIndex, player) => {
-    // convertir el tile en la posición tileIndex al jugador seleccionado
-    // ejemplo: setTileTo(0, 'X') -> convierte la primera casilla en 'X'
-  };
+  React.useEffect(()=>{
+    const winner = getWinner(tiles, player);
+    (winner) ? endGame(winner) : updatePlayer()
+  },[tiles])
+
+  function endGame(winner){
+    setGameEnded(true)
+    if(winner!=="tie"){
+      setWinner(winner)
+    }
+  }
+
+  const squareOnClic = (e)=>{
+    if(gameEnded){
+      return
+    }
+    const id = parseInt(e.target.id.replace('square-', ''));
+    (tiles[id]!=="") || setTileTo(tiles.map((el, i)=> (i===id)? player : el));
+  }
+  
+  const updatePlayer = ()=>{
+    if(tiles.indexOf(initialPlayer)===(-1)){
+      setPlayer(initialPlayer)
+    } else{
+      setPlayer((player === "X") ? "O" : "X")
+    }
+  }
+
   const restart = () => {
-    // Reiniciar el juego a su estado inicial
+    setTileTo(["","","","","","","","",""])
+    setGameEnded(false)
+    setWinner('')
+    setPlayer(initialPlayer)
   };
 
-  // por si no reconocen esta sintáxis, es solamente una forma más corta de escribir:
-  // { tiles: tiles, currentPlayer: currentPlayer, ...}
-  return { tiles, currentPlayer, winner, gameEnded, setTileTo, restart };
+  return { tiles, gameEnded, restart, squareOnClic, winner };
 };
 
 const TicTacToe = () => {
-  // const { tiles, currentPlayer, winner, gameEnded, setTileTo, restart } = useTicTacToeGameState('X');
+  const { tiles, gameEnded, restart, squareOnClic, winner} = useTicTacToeGameState('X');
+
   return (
     <div className="tictactoe">
       {/* Este componente debe contener la WinnerCard y 9 componentes Square, 
       separados en tres filas usando <div className="tictactoe-row">{...}</div> 
-      para separar los cuadrados en diferentes filas */}
+      para separar los cuadrados en diferentes filas */
+      <>  
+        <WinnerCard show={gameEnded} onRestart={restart} winner={winner || undefined}/>
+        <div className="tictactoe-row">
+          <Square value={tiles[0]} id={`square-${0}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[1]} id={`square-${1}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[2]} id={`square-${2}`} onClick={squareOnClic}></Square>
+        </div>
+        <div className="tictactoe-row">
+          <Square value={tiles[3]} id={`square-${3}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[4]} id={`square-${4}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[5]} id={`square-${5}`} onClick={squareOnClic}></Square>
+        </div>
+        <div className="tictactoe-row">
+          <Square value={tiles[6]} id={`square-${6}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[7]} id={`square-${7}`} onClick={squareOnClic}></Square>
+          <Square value={tiles[8]} id={`square-${8}`} onClick={squareOnClic}></Square>
+        </div>
+      </>  
+      }
     </div>
   );
 };
