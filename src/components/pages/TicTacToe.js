@@ -26,7 +26,7 @@ import FancyButton from '../small/FancyButton';
 
 const Square = ({ value, onClick = () => {}, id }) => {
   return (
-    <div onClick={onClick} className="square" id={id}>
+    <div onClick={()=>onClick(id)} className="square" id={id}>
       {value}
     </div>
   );
@@ -54,70 +54,60 @@ WinnerCard.propTypes = {
   onRestart: PropTypes.func,
 };
 
-const getWinner = (tiles, player) => {
-  const allSquaresFilled = (tiles.indexOf('')===-1)
-  const playerEntries = tiles.map((el, i)=> (el===player)? i : null).filter((i)=> i!==null);
+
+function getWinner(tiles, currentPlayer){
+  const previousPlayer = ((currentPlayer === "X") ? "O" : "X") 
+  const playerEntries = tiles.map((el, i)=> (el===previousPlayer)? i : null).filter((i)=> i!==null);
+  
   let winnerExists;
 
   if(playerEntries.length>=3){
-    winnerExists = mapper(playerEntries);
+    winnerExists = searchForWinnerEntries(playerEntries);
   }
 
-  function mapper(array){
-    if(array.length<3){
-      return false
-    }
-    const closerRelations = array.slice(1).filter(el => el>=(array[0]-4) || el<=(array[0]-4)).map(el => [el, (el-array[0]), (el%3 - array[0]%3)])
-    const extendedRelations = closerRelations.filter(([el, increase, moduleDifference])=>{
-      const searchedNumber = array[0]+increase*2;
-      return (array.includes(searchedNumber) && ((searchedNumber%3-array[0]%3)===moduleDifference*2))
-    });
-    return ((extendedRelations.length!== 0)? true : mapper(array.slice(1)))
-  }
-
-  const results = (winnerExists)? player : (allSquaresFilled)? "tie" : false
-
-  return results;
+  return ((winnerExists)? previousPlayer : false);
 };
+
+function searchForWinnerEntries(playerEntries){
+  if(playerEntries.length<3){
+    return false
+  }
+  const closerRelations = extractsIncreaseAndModulesDifferenceWithTheFirstArrayElement(playerEntries)
+  const extendedRelations = searchsForTheSamePatternInOtherArrayElements(playerEntries, closerRelations)
+  return ((extendedRelations.length!== 0)? true : searchForWinnerEntries(playerEntries.slice(1)))
+}
+
+function extractsIncreaseAndModulesDifferenceWithTheFirstArrayElement(playerEntries){
+  return playerEntries.slice(1)
+    .filter(el => el>=(playerEntries[0]-4))
+    .map(el => [el, (el-playerEntries[0]), (el%3 - playerEntries[0]%3)])
+}
+
+function searchsForTheSamePatternInOtherArrayElements(playerEntries, shortenedArray){
+  const elementFromWiningLine =  shortenedArray.filter(([el, increase, moduleDifference])=>{
+    const searchedNumber = el+increase;
+    return (playerEntries.includes(searchedNumber) && ((searchedNumber%3-el%3)===moduleDifference))
+  });
+
+  return elementFromWiningLine
+}
 
 const useTicTacToeGameState = initialPlayer => {
   const [tiles, setTileTo] = React.useState(["","","","","","","","",""])
   const [player, setPlayer] = React.useState(initialPlayer)
-  const [gameEnded, setGameEnded] = React.useState(false)
-  const [winner, setWinner] = React.useState('')
 
-  React.useEffect(()=>{
-    const winner = getWinner(tiles, player);
-    (winner) ? endGame(winner) : updatePlayer()
-  },[tiles])
+  const allSquaresFilled = (tiles.indexOf('')===-1)
+  const winner = getWinner(tiles, player)
+  const gameEnded = winner!== false || allSquaresFilled;
 
-  function endGame(winner){
-    setGameEnded(true)
-    if(winner!=="tie"){
-      setWinner(winner)
-    }
-  }
-
-  const squareOnClic = (e)=>{
-    if(gameEnded){
-      return
-    }
-    const id = parseInt(e.target.id.replace('square-', ''));
-    (tiles[id]!=="") || setTileTo(tiles.map((el, i)=> (i===id)? player : el));
-  }
-  
-  const updatePlayer = ()=>{
-    if(tiles.indexOf(initialPlayer)===(-1)){
-      setPlayer(initialPlayer)
-    } else{
-      setPlayer((player === "X") ? "O" : "X")
-    }
+  const squareOnClic = (id)=>{
+    const idNumber = parseInt(id.replace('square-', ''));
+    (tiles[idNumber]!=="") || setTileTo(tiles.map((el, i)=> (i===idNumber)? player : el));
+    setPlayer((player === "X") ? "O" : "X")
   }
 
   const restart = () => {
     setTileTo(["","","","","","","","",""])
-    setGameEnded(false)
-    setWinner('')
     setPlayer(initialPlayer)
   };
 
@@ -134,21 +124,16 @@ const TicTacToe = () => {
       para separar los cuadrados en diferentes filas */
       <>  
         <WinnerCard show={gameEnded} onRestart={restart} winner={winner || undefined}/>
-        <div className="tictactoe-row">
-          <Square value={tiles[0]} id={`square-${0}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[1]} id={`square-${1}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[2]} id={`square-${2}`} onClick={squareOnClic}></Square>
-        </div>
-        <div className="tictactoe-row">
-          <Square value={tiles[3]} id={`square-${3}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[4]} id={`square-${4}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[5]} id={`square-${5}`} onClick={squareOnClic}></Square>
-        </div>
-        <div className="tictactoe-row">
-          <Square value={tiles[6]} id={`square-${6}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[7]} id={`square-${7}`} onClick={squareOnClic}></Square>
-          <Square value={tiles[8]} id={`square-${8}`} onClick={squareOnClic}></Square>
-        </div>
+        {tiles.map((tile, i)=>{
+          if(i%3===0){
+            return (
+              <div className="tictactoe-row" key={`div-${i}`}>
+                <Square value={tiles[i]} id={`square-${i}`} onClick={squareOnClic}></Square>
+                <Square value={tiles[i+1]} id={`square-${i+1}`} onClick={squareOnClic}></Square>
+                <Square value={tiles[i+2]} id={`square-${i+2}`} onClick={squareOnClic}></Square>
+              </div>
+            )}
+        })}
       </>  
       }
     </div>
